@@ -1,0 +1,999 @@
+Resources:
+  AdToolsUIBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+  AdToolsUIBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref AdToolsUIBucket
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetBucket*'
+              - 's3:GetObject*'
+              - 's3:List*'
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt 
+                - OACForUID
+                - S3CanonicalUserId
+            Resource:
+              - !GetAtt 
+                - AdToolsUIBucket
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - AdToolsUIBucket
+                    - Arn
+                  - /*
+          - Action: 's3:GetObject'
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt 
+                - OACForUID
+                - S3CanonicalUserId
+            Resource: !Join 
+              - ''
+              - - !GetAtt 
+                  - AdToolsUIBucket
+                  - Arn
+                - /*
+        Version: 2012-10-17
+  OACForUID:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Allows CloudFront to reach the bucket
+  AdToolsUIDistributionCFDistribution:
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 400
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          DefaultTTL: 31536000
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          MaxTTL: 31536000
+          MinTTL: 31536000
+          TargetOriginId: origin1
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            DomainName: !GetAtt 
+              - AdToolsUIBucket
+              - RegionalDomainName
+            Id: origin1
+            S3OriginConfig:
+              OriginAccessIdentity: !Join 
+                - ''
+                - - origin-access-identity/cloudfront/
+                  - !Ref OACForUID
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+  AdToolsAPI:
+    Type: 'AWS::AppSync::GraphQLApi'
+    Properties:
+      AdditionalAuthenticationProviders:
+        - AuthenticationType: AWS_IAM
+      AuthenticationType: API_KEY
+      Name: AdToolsStackWorkshop-AdTools-API
+  AdToolsAPISchema:
+    Type: 'AWS::AppSync::GraphQLSchema'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DefinitionS3Location: !Ref GraphQLSchemaLocation
+  AdToolsAPIDefaultApiKey:
+    Type: 'AWS::AppSync::ApiKey'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      Expires: 1736799702
+    DependsOn:
+      - AdToolsAPISchema
+  AdToolsAPInone:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      Name: none
+      Type: NONE
+  GeneratedImagesBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  ExistingMediaLibrary:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      AccessControl: Private
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  Boto3LayerVersion:
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      CompatibleRuntimes:
+        - python3.10
+        - python3.11
+      Content:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}layers/boto3.zip'
+  BotoConverseLayerVersion:
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      CompatibleRuntimes:
+        - python3.12
+      Content:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}layers/botoconverse.zip'
+  Bytes64LayerVersion:
+    Type: 'AWS::Lambda::LayerVersion'
+    Properties:
+      CompatibleRuntimes:
+        - python3.10
+        - python3.11
+        - python3.12
+      Content:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}layers/bytes64.zip'
+  AdToolsLambdasRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+  AdToolsLambdasRoleDefaultPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'appsync:GraphQL'
+              - 'appsync:GetGraphqlApi'
+              - 'bedrock:InvokeAgent'
+              - 'bedrock:InvokeFlow'
+              - 'bedrock:InvokeModel'
+              - 'bedrock:InvokeModelWithResponseStream'
+              - 'bedrock:Retrieve'
+              - 'dynamodb:DescribeTable'
+              - 'dynamodb:GetItem'
+              - 'dynamodb:BatchGetItem'
+              - 'dynamodb:PartiQLSelect'
+              - 'dynamodb:Query'
+              - 'dynamodb:Scan'
+              - 'dynamodb:ConditionCheckItem'
+              - 'dynamodb:BatchWriteItem'
+              - 'dynamodb:DeleteItem'
+              - 'dynamodb:PartiQLDelete'
+              - 'dynamodb:PartiQLInsert'
+              - 'dynamodb:PartiQLUpdate'
+              - 'dynamodb:PutItem'
+              - 'dynamodb:UpdateItem'
+              - 'dynamodb:ListTables'
+              - 'lambda:InvokeAsync'
+              - 'lambda:InvokeFunction'
+              - 'rekognition:DetectLabels'
+              - 'rekognition:DetectText'
+              - "rekognition:GetLabelDetection"
+              - "rekognition:GetFaceDetection"
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:DeleteObject'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource: '*'
+        Version: 2012-10-17
+      PolicyName: AdToolsLambdasRoleDefaultPolicy
+      Roles:
+        - !Ref AdToolsLambdasRole
+  MoodboardParts:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: moodboard_id
+          AttributeType: S
+        - AttributeName: part_type
+          AttributeType: S
+        - AttributeName: generated_date
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: moodboard_id-part_type-index
+          KeySchema:
+            - AttributeName: moodboard_id
+              KeyType: HASH
+            - AttributeName: part_type
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: part_type-generated_date-index
+          KeySchema:
+            - AttributeName: part_type
+              KeyType: HASH
+            - AttributeName: generated_date
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: moodboard_id
+          KeyType: RANGE
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  publishresults:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/publishresults.zip'
+      Environment:
+        Variables:
+          AppSyncAPI: !GetAtt AdToolsAPI.GraphQLUrl
+          AppSyncAPIKey: !GetAtt AdToolsAPIDefaultApiKey.ApiKey
+      Handler: index.handler
+      Role: !GetAtt AdToolsLambdasRole.Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  generateadcopywithrekognitionandbedrock:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/generateadcopy.zip'
+      Environment:
+        Variables:
+          PublishResultsViaAppSyncLambda: !Ref publishresults
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref BotoConverseLayerVersion 
+      Role: !GetAtt AdToolsLambdasRole.Arn
+      Runtime: python3.12
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  processandanalyzeimageforadcopyfunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/processimageforadcopy4.zip'
+      Environment:
+        Variables:
+          GenerateAdCopyLambda: !Ref generateadcopywithrekognitionandbedrock
+          ImageGenerationLambda: !Ref generateimagewithbedrock
+          ModelOverride: ''
+          GeneratedImageBucket: !Ref GeneratedImagesBucket
+      Handler: index.handler
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  getmoodboardparts:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/getmoodboardparts.zip'
+      Environment:
+        Variables:
+          MoodboardHistoryTableName: !Ref MoodboardParts
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Handler: index.handler
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  getmoodboards:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/getmoodboards.zip'
+      Environment:
+        Variables:
+          MoodboardHistoryTableName: !Ref MoodboardParts
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Handler: index.handler
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  removemoodboard:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/removemoodboard.zip'
+      Environment:
+        Variables:
+          MoodboardHistoryTableName: !Ref MoodboardParts
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Handler: index.handler
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  getimagelibrary:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/getimagelibrary.zip'
+      Environment:
+        Variables:
+          AssetsBucket: !Ref ExistingMediaLibrary
+          AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+      Handler: index.handler
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: nodejs18.x
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  generateimagewithbedrock:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/generateimage.zip'
+      Environment:
+        Variables:
+          ImageBucket: !Ref GeneratedImagesBucket
+          PublishResultsViaAppSyncLambda: !Ref publishresults
+          MoodboardHistoryTableName: !Ref MoodboardParts
+          ModelOverride: ''
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref Bytes64LayerVersion
+        - !Ref BotoConverseLayerVersion 
+      Role: !GetAtt AdToolsLambdasRole.Arn
+      Runtime: python3.12
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  regeneratecreativeassetimagewithbedrockfunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/regeneratecreativeassetimage.zip'
+      Environment:
+        Variables:
+          ImageBucket: !Ref GeneratedImagesBucket
+          PublishResultsViaAppSyncLambda: !Ref publishresults
+          MoodboardHistoryTableName: !Ref MoodboardParts
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref BotoConverseLayerVersion
+        - !Ref Bytes64LayerVersion
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: python3.12
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  generatemoodboardwithbedrockfunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Sub '${MyAssetsBucketName}'
+        S3Key: !Sub '${MyAssetsBucketPrefix}lambdas/generatemoodboard.zip'
+      Environment:
+        Variables:
+          ImageGenerationLambda: !Ref generateimagewithbedrock
+          PublishResultsViaAppSyncLambda: !Ref publishresults
+          MoodboardHistoryTableName: !Ref MoodboardParts
+      Handler: index.lambda_handler
+      Layers:
+        - !Ref BotoConverseLayerVersion
+      Role: !GetAtt 
+        - AdToolsLambdasRole
+        - Arn
+      Runtime: python3.12
+      Timeout: 900
+    DependsOn:
+      - AdToolsLambdasRoleDefaultPolicy
+      - AdToolsLambdasRole
+  AppSyncLambdaResolverRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+        Version: 2012-10-17
+  AppSyncLambdaResolverRoleDefaultPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: 'lambda:InvokeFunction'
+            Effect: Allow
+            Resource:
+              - '*'
+              - !GetAtt 
+                - generatemoodboardwithbedrockfunction
+                - Arn
+              - !GetAtt 
+                - getmoodboardparts
+                - Arn
+              - !GetAtt 
+                - getmoodboards
+                - Arn
+              - !GetAtt 
+                - processandanalyzeimageforadcopyfunction
+                - Arn
+              - !GetAtt 
+                - regeneratecreativeassetimagewithbedrockfunction
+                - Arn
+              - !GetAtt 
+                - removemoodboard
+                - Arn
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - generatemoodboardwithbedrockfunction
+                    - Arn
+                  - ':*'
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - getmoodboardparts
+                    - Arn
+                  - ':*'
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - getmoodboards
+                    - Arn
+                  - ':*'
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - processandanalyzeimageforadcopyfunction
+                    - Arn
+                  - ':*'
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - regeneratecreativeassetimagewithbedrockfunction
+                    - Arn
+                  - ':*'
+              - !Join 
+                - ''
+                - - !GetAtt 
+                    - removemoodboard
+                    - Arn
+                  - ':*'
+        Version: 2012-10-17
+      PolicyName: AppSyncLambdaResolverRoleDefaultPolicy
+      Roles:
+        - !Ref AppSyncLambdaResolverRole
+  GenerateMoodboardWithBedrockDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - generatemoodboardwithbedrockfunction
+          - Arn
+      Name: GenerateMoodboardWithBedrockDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  RegenerateImageDataSourceE220EDF2:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - regeneratecreativeassetimagewithbedrockfunction
+          - Arn
+      Name: RegenerateImageDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  GetGeneratedContentDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - getmoodboardparts
+          - Arn
+      Name: GetMoodboardPartsDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  GetGeneratedContentsDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - getmoodboards
+          - Arn
+      Name: GetGeneratedContentsDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  ListMediaAssetsDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - getimagelibrary
+          - Arn
+      Name: ListMediaAssetsDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  RemoveMoodboardDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt 
+        - AdToolsAPI
+        - ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt 
+          - removemoodboard
+          - Arn
+      Name: RemoveMoodboardDataSource
+      ServiceRoleArn: !GetAtt 
+        - AppSyncLambdaResolverRole
+        - Arn
+      Type: AWS_LAMBDA
+  UploadImageForAdCopyDataSource:
+    Type: 'AWS::AppSync::DataSource'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt processandanalyzeimageforadcopyfunction.Arn
+      Name: UploadImageForAdCopyDataSource
+      ServiceRoleArn: !GetAtt AppSyncLambdaResolverRole.Arn
+      Type: AWS_LAMBDA
+  CreatePromptResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: GenerateMoodboardWithBedrockDataSource
+      FieldName: createPrompt
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version" : "2017-02-28",
+                "operation": "Invoke",
+                "payload": $util.toJson($context.args.input)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Mutation
+    DependsOn:
+      - AdToolsAPISchema
+      - GenerateMoodboardWithBedrockDataSource
+  CreateGeneratedContentResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: none
+      FieldName: createGeneratedContentResults
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28", 
+                "payload": $util.toJson($context.args.input)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Mutation
+    DependsOn:
+      - AdToolsAPInone
+      - AdToolsAPISchema
+  RegenerateImageResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: RegenerateImageDataSource
+      FieldName: regenerateImage
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28",        
+                "operation": "Invoke",
+                "payload": $util.toJson($context.args)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Mutation
+    DependsOn:
+      - AdToolsAPISchema
+      - RegenerateImageDataSourceE220EDF2
+  GetGeneratedContentResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: GetMoodboardPartsDataSource
+      FieldName: getGeneratedContent
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28",
+                "operation": "Invoke",
+                "payload":  $util.toJson($context.args)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Query
+    DependsOn:
+      - AdToolsAPISchema
+      - GetGeneratedContentDataSource
+  GetGeneratedContentsResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId    
+      DataSourceName: GetGeneratedContentsDataSource
+      FieldName: listGeneratedContentes
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28",
+                "operation": "Invoke",
+                "payload":  $util.toJson($context.args)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Query
+    DependsOn:
+      - AdToolsAPISchema
+      - GetGeneratedContentsDataSource
+  ListMediaAssetsResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: ListMediaAssetsDataSource
+      FieldName: listMediaAssets
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28",
+                "operation": "Invoke",
+                "payload":  $util.toJson($context.args)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Query
+    DependsOn:
+      - AdToolsAPISchema
+      - ListMediaAssetsDataSource
+  RemoveMoodboardResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: RemoveMoodboardDataSource
+      FieldName: removeGeneratedContent
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version": "2017-02-28",
+                "operation": "Invoke",
+                "payload":  $util.toJson($context.args)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Mutation
+    DependsOn:
+      - AdToolsAPISchema
+      - RemoveMoodboardDataSource
+  UploadImageForAdCopyResolver:
+    Type: 'AWS::AppSync::Resolver'
+    Properties:
+      ApiId: !GetAtt AdToolsAPI.ApiId
+      DataSourceName: UploadImageForAdCopyDataSource
+      FieldName: createDocumentUploadRequest
+      Kind: UNIT
+      RequestMappingTemplate: |-
+        {
+                "version" : "2017-02-28",
+                "operation": "Invoke",
+                "payload": $util.toJson($context.args.input)
+              }
+      ResponseMappingTemplate: $util.toJson($context.result)
+      TypeName: Mutation
+    DependsOn:
+      - AdToolsAPISchema
+      - UploadImageForAdCopyDataSource
+  LambdaFunctionRole2:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: LambdaInvokeAndLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - lambda:*
+            Resource: !GetAtt DownloadFunction.Arn
+  LambdaFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: S3AndLogsPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${MyAssetsBucketName}'
+                  - !Sub 'arn:aws:s3:::${AdToolsUIBucket}'
+                  - !Sub 'arn:aws:s3:::${ExistingMediaLibrary}'
+                  - !Sub 'arn:aws:s3:::${MyAssetsBucketName}/*'
+                  - !Sub 'arn:aws:s3:::${AdToolsUIBucket}/*'
+                  - !Sub 'arn:aws:s3:::${ExistingMediaLibrary}/*'
+  DownloadFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Description: Downloads UI assets to S3 bucket
+      Handler: index.handler
+      MemorySize: 256
+      Runtime: python3.12
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Timeout: 900
+      Environment:
+        Variables:
+          SourceAssetsPrefix: !Ref MyAssetsBucketPrefix
+          SourceAssetsBucket: !Ref MyAssetsBucketName
+          UIBucket: !Ref AdToolsUIBucket
+          ExistingMediaLibrary: !Ref ExistingMediaLibrary
+          RuntimeConfig: !Join ['',['{"aws_project_region":"',!Ref 'AWS::Region','","aws_appsync_graphqlEndpoint":"',!GetAtt AdToolsAPI.GraphQLUrl,'","aws_appsync_region":"',!Ref 'AWS::Region','","aws_appsync_authenticationType":"API_KEY","aws_appsync_apiKey":"',!GetAtt AdToolsAPIDefaultApiKey.ApiKey,'"}']]
+      Code:
+        ZipFile: >
+          import boto3, botocore, json, os,logging
+
+          def write_new_file(body,destination,key):
+              s3_resource = boto3.resource('s3')
+              s3_resource.meta.client.put_object(Body=body, Bucket=destination, Key=key)
+
+
+          def copy_from_source_to_target(bucket_to_copy,source_prefix,new_bucket_name):
+              s3_resource = boto3.resource('s3')
+              
+              for key in s3_resource.meta.client.list_objects(Bucket=bucket_to_copy,Prefix=source_prefix)['Contents']:
+                  files = key['Key']
+                  copy_source = {'Bucket': bucket_to_copy,'Key': files}
+                  s3_resource.meta.client.copy(copy_source, new_bucket_name, files.replace(source_prefix+'/',''))
+                  print(files)
+
+              
+          def handler(event, context):
+              logger = logging.getLogger() 
+              logger.setLevel(logging.INFO)
+              ui_source_prefix = os.environ['SourceAssetsPrefix']+'frontend'
+              images_source_prefix = os.environ['SourceAssetsPrefix']+'images'
+              source_bucket = os.environ['SourceAssetsBucket']
+              ui_destination_bucket = os.environ['UIBucket']
+              images_destination_bucket = os.environ['ExistingMediaLibrary']
+              ui_config_body = os.environ['RuntimeConfig']
+              
+              try:
+                  response_ui = copy_from_source_to_target(source_bucket,ui_source_prefix,ui_destination_bucket)
+                  response_images = copy_from_source_to_target(source_bucket,images_source_prefix,images_destination_bucket)
+                  logger.info("Files copied to the destination buckets successfully!")
+                  
+              except botocore.exceptions.ClientError as error:
+                  logger.error("There was an error copying the objects to the destination bucket")
+                  print('Error Message: {}'.format(error))
+                  
+              except botocore.exceptions.ParamValidationError as error:
+                  logger.error("Missing required parameters while calling the API.")
+                  print('Error Message: {}'.format(error))
+              try:
+                  print('create ui file')
+                  write_new_file(ui_config_body, ui_destination_bucket, 'assets/runtime-config.json')
+
+              except botocore.exceptions.ClientError as error:
+                  logger.error("There was an error creating the configuration file for the UI")
+                  print('Error Message: {}'.format(error))
+                  
+              except botocore.exceptions.ParamValidationError as error:
+                  logger.error("Missing required parameters while calling the API.")
+                  print('Error Message: {}'.format(error))
+
+  LambdaFunctionTrigger:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt LambdaFunctionRole2.Arn
+      Runtime: python3.12
+      Timeout: 900
+      Environment:
+        Variables:
+          DownloadFunctionName: !Ref DownloadFunction
+      Code:
+        ZipFile: |
+          import boto3, json, os
+          from time import sleep
+
+          import cfnresponse
+
+          download_function = os.environ.get("DownloadFunctionName")
+
+          def handler(event, context):
+              print('INFO: EVENT:[{}]'.format(event))
+              print("INFO: Invoking lambda asynchronously: ", download_function)
+
+              lambda_client = boto3.client('lambda')
+              trigger_event = '{"name":"download_function_trigger"}'
+              responseType = cfnresponse.SUCCESS
+              lambda_response = {}
+
+              try:
+                  lambda_response = lambda_client.invoke(
+                      FunctionName=download_function,
+                      InvocationType='Event',
+                      Payload=trigger_event,
+                  )
+                  print("INFO: Invocation response: ", lambda_response)
+
+              except Exception as e:
+                  print("ERROR: Received Error when trying to invoke function. Please invoke manually", e)
+                  responseType = cfnresponse.FAILED
+
+              finally:
+                  # Sleep 60 seconds to allow downstream lambda function to make progress
+                  sleep(60)
+
+                  # Send response back to CloudFormation or it may hang
+                  responseData = {}
+                  if lambda_response and "StatusCode" in lambda_response:
+                      responseData['StatusCode'] = lambda_response['StatusCode']
+                  else:
+                      responseData['StatusCode'] = 500
+                  cfnresponse.send(event, context, responseType, responseData)
+                  return
+  TriggerInvoke:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt LambdaFunctionTrigger.Arn
+  
+Outputs:
+  FrontEndS3Bucket:
+    Value: !Sub '${AdToolsUIBucket}'
+  AssetLibraryBucket:
+    Value: !Sub '${ExistingMediaLibrary}'
+  GetImageLibraryFunction:
+    Value: !Sub '${getimagelibrary}'
+  GenerateMoodboardFunction:
+    Value: !Sub '${generatemoodboardwithbedrockfunction}'
+  ImageGenerationFunction:
+    Value: !Sub '${generateimagewithbedrock}'
+  ProcessImageForAdCopyFunction:
+    Value: !Sub '${processandanalyzeimageforadcopyfunction}'
+  GenerateAdCopyFunction:
+    Value: !Sub '${generateadcopywithrekognitionandbedrock}'
+  URL:
+    Value: !Sub 'https://${AdToolsUIDistributionCFDistribution.DomainName}'
+  
+Conditions: {}
+Parameters:
+  MyAssetsBucketName:
+    Description: Assets bucket name
+    Type: String
+  MyAssetsBucketPrefix:
+    Description: Assets bucket prefix
+    Type: String
+  GraphQLSchemaLocation:
+    Description: AppSync API schema S3 URI
+    Type: String
+    

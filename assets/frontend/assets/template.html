@@ -1,0 +1,167 @@
+<!doctype html>
+<title>Example</title>
+<style>
+  * {
+    box-sizing: border-box; 
+  }
+  body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: row;
+    margin: 0;
+  }
+  div{
+    border:1px solid black;
+    
+  }
+  .outer-col-1 {
+    background: #D7E8D4;
+    flex: 1;
+  }
+  .outer-col-2 {
+    display: flex;
+    flex-direction: column;
+    flex: 5;
+  }
+  .inner-row {
+    display: flex;
+    flex-direction: row;
+   min-height:10vh
+  }
+  .inner-col {
+    flex: 4;
+    display: flex;
+    flex-direction: column;
+  }
+  .color-div {
+    flex: 1;
+    min-height:10vh
+    
+  }
+  .inner-row article {
+    min-height: 60vh;
+  }
+  .inner-row aside {
+    background: beige;
+    flex: 1;
+  }
+  header, footer {
+    background: yellowgreen;
+    height: 20vh;
+  }
+  header, footer, article, nav, aside {
+    padding: 1em;
+  }
+  .sounds-div{
+  	min-width:calc(300px);
+        flex-direction: column;
+
+  }
+  .imagery-div{
+    flex:1;
+    background:green;
+    min-width:calc((100vw - 300px) * 0.15);
+  }
+  .tagline-div{
+    flex:1;
+    background:blue;
+    height:22vh;
+    min-width:calc((100vw - 300px) * 0.10)
+    
+  }
+  .adjective-div{
+    flex:1;
+    background:pink;
+    height:22vh;
+    max-width:calc((100vw - 300px) * 0.15);
+
+  }
+  
+  .feature-image-div{
+    flex:2;
+    flex-grow:1;
+    min-width:40vw
+  }
+
+  .font-div {
+  	word-wrap:break-word;
+    flex:1;          
+    height:22vh;
+    max-width:calc((100vw - 300px) * 0.10);
+
+  }
+  .pitch{
+  	font-size: 1.2rem;
+    flex:1
+	
+  }
+  .sound{
+    flex:1
+  }
+  
+  
+</style>
+
+<body>
+	<div class="outer-col-2">
+		<div class="inner-row">
+			<div class="inner-col">
+				<div class="inner-row">
+					<div class="inner-col">
+						<div class='feature-image-div'>FeatureImage</div>
+					</div>
+					<div class="inner-col">
+						<div class="inner-row">
+							<div class='imagery-div'>Image1</div>
+							<div class='tagline-div'>tagline</div>
+							<div class='imagery-div'>Image3</div>
+						<div class="font-div">fontfontfontfontfontfontfontfontfontfont</div>
+						</div>
+                      <div class="inner-row">
+							<div class='imagery-div'>Image3</div>
+						<div class="font-div">fontfontfontfontfontfontfontfontfontfont</div>
+							<div class='adjective-div'>adjective 1</div>
+							<div class='imagery-div'>Image3</div>
+						
+					</div>
+                      
+                  </div>
+                  
+					
+				</div>
+              <div class="inner-row">
+                        <div class="tagline-div">tagline</div>
+                        <div class="imagery-div">image</div>
+                        <div class="adjective-div">adjective 1</div>
+						<div class="tagline-div">tagline</div>
+						
+                      </div>
+              <div class="inner-row">
+                        <div class="imagery-div">image</div>
+                        <div class="font-div">fontfont</div>
+                        <div class="adjective-div">adjective</div>
+						<div class="font-div">fontfontfontfontfontfontfontfontfontfont</div>
+							<div class='tagline-div'>tagline</div>
+						<div class="imagery-div">image</div>
+						
+                      </div>
+			</div>
+			<div class="sounds-div">
+              
+              <div class="pitch">pitch</div>
+              <div class="inner-row">
+                <div class="color-div">color1</div>
+                <div class="color-div">color2</div>
+              </div>
+              <div class="inner-row">
+                <div class="color-div">color3</div>
+                <div class="color-div">color4</div>
+              </div>
+              <div class="sound">sound</div>
+              <div class="sound">sound</div> 
+              <div class="sound">sound</div>
+              
+          </div>
+		</div>
+	</div>
+</body>

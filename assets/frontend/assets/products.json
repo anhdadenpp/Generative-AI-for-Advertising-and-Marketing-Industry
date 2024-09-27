@@ -1,0 +1,61 @@
+[
+  {
+    "spec": "indoor plants for small spaces",
+    "stylePreset":"photographic"
+  },
+  {
+    "spec": "room decor for 3 year old girls",
+    "stylePreset":"fantasy-art"
+  },
+  {
+    "spec": "paint supplies for college art rooms",
+    "stylePreset":"digital-art"
+  },
+  {
+    "spec": "a luxury resort in Mexico",
+    "stylePreset":"cinematic"
+  },
+  {
+    "spec": "an exclusive seafood restaurant in Majorca",
+    "stylePreset":"photographic"
+  },
+  {
+    "spec": "toys for puppies",
+    "stylePreset":"pixel-art"
+
+  },
+  {
+    "spec": "a golf and country club called Palmira in Florida",
+    "stylePreset":"photographic"
+
+  },
+  {
+    "spec": "colorful tupperware aimed at millenials",
+    "stylePreset":"digital-art"
+
+  }
+  ,
+  {
+    "spec": "healthy snacks for young parents",
+    "stylePreset":"digital-art"
+
+  }
+  ,
+  {
+    "spec": "baby wipes for millenial moms",
+    "stylePreset":"digital-art"
+
+  }
+  ,
+  {
+    "spec": "mountain climbing gear",
+    "stylePreset":"photographic"
+
+  }
+  ,
+  {
+    "spec": "an alcohol-free cocktail bar in Miami",
+    "stylePreset":"comic-book"
+
+  }
+]

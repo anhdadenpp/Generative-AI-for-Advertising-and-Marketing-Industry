@@ -1,0 +1,242 @@
+﻿schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+type AssetConnection {
+  message: String
+  nextToken: String
+  result: [AssetResult]
+  success: Boolean
+}
+
+type AssetResult @aws_api_key @aws_iam {
+  original: String!
+  s3ObjectBucket: String
+  s3ObjectKey: String
+  thumbnail: String!
+}
+
+type CreateAssetPromptResult @aws_api_key @aws_iam {
+  asset_type: String
+  error_code: Int
+  id: String!
+  message: String
+}
+
+type DocumentUpload @aws_api_key @aws_iam {
+  bucket: String
+  data: String
+  id: String
+  key: String
+  metadata: String
+  type: String
+}
+
+type GeneratedContent @aws_api_key @aws_iam {
+  Id: String
+  content: String
+  date_created: String
+  domain: String
+  entities: String
+  prompt: String
+  source_id: String
+  source_type: String
+  user_input: String
+}
+
+type GeneratedContentConnection {
+  items: [GeneratedContent]
+  nextToken: String
+}
+
+type CreateGeneratedContentResults @aws_api_key @aws_iam {
+  content: String
+  domain: String
+  entities: String
+  id: String!
+  prompt: String
+  source_id: String
+  source_type: String
+}
+
+type GeneratedImage @aws_api_key @aws_iam {
+  assetId: String
+  assetPartId: String
+  date_created: String
+  original: String
+  prompt: String
+  thumbnail: String
+}
+
+type Mutation {
+  createAssetPrompt(input: CreateAssetPromptInput!): CreateAssetPromptResult @aws_api_key
+  createDocumentUploadRequest(input: CreateDocumentUploadInput!): DocumentUpload @aws_api_key @aws_iam
+  createGeneratedContent(input: CreateGeneratedContentInput!): GeneratedContent @aws_api_key
+  createGeneratedContentResults(input: CreateGeneratedContentResultsInput!): CreateGeneratedContentResults @aws_api_key @aws_iam
+  createPrompt(input: CreatePromptInput!): AssetData @aws_api_key @aws_iam
+  regenerateImage(assetId: String!, assetPartId: String!, partType: String!, prompt: String!): GeneratedImage @aws_api_key @aws_iam
+  removeGeneratedContent(id: String!, moodboardId: String!): Int @aws_api_key
+}
+
+type AssetData @aws_api_key @aws_iam {
+  adjectives: String
+  colors: String
+  fonts: String
+  id: String
+  imagery: String
+  pitch: String
+  sounds: String
+  taglines: String
+  useCase: String
+  user_input: String
+  prompt: String
+}
+
+type Query {
+  getGeneratedContent(Id: String!): GeneratedContent
+  listGeneratedContentes(filter: TableGeneratedContentFilterInput, limit: Int, nextToken: String): GeneratedContentConnection
+  listMediaAssets(filter: TableAssetFilterInput, limit: Int, nextToken: String): AssetConnection
+}
+
+type S3Object @aws_api_key @aws_iam {
+  bucket: String
+  key: String
+}
+
+type Source @aws_api_key @aws_iam {
+  Id: String
+  Name: String
+}
+
+type SourceConnection {
+  items: [Source]
+  nextToken: String
+}
+
+type Subscription {
+  onCreateAssetPrompt(input: CreateAssetPromptInput): CreateAssetPromptResult @aws_subscribe(mutations : ["createAssetPrompt"])
+  onCreateGeneratedContentResults(id: String!): CreateGeneratedContentResults @aws_subscribe(mutations : ["createGeneratedContentResults"])
+  onRegenerateImage(assetId: String, assetPartId: String): GeneratedImage @aws_subscribe(mutations : ["regenerateImage"])
+}
+
+input CreateAssetPromptInput {
+  asset_types: String
+  audience: String
+  custom_config_JSON: String
+  id: String
+  product: String
+  style: String
+}
+
+input CreateDocumentUploadInput {
+  bucket: String
+  data: String
+  id: String
+  key: String
+  metadata: String
+  type: String
+}
+
+input CreateGeneratedContentInput {
+  Id: String
+  content: String
+  date_created: String
+  domain: String
+  entities: String
+  prompt: String
+  source_id: String
+  source_type: String
+  user_input: String
+}
+
+input CreateGeneratedContentResultsInput {
+  content: String
+  domain: String
+  entities: String
+  id: String!
+  prompt: String
+  source_id: String
+  source_type: String
+  user_input: String
+}
+
+input CreatePromptInput {
+  id: String
+  useCase: String
+  user_input: String
+}
+
+input TableAssetFilterInput {
+  type: String
+}
+
+input TableBooleanFilterInput {
+  eq: Boolean
+  ne: Boolean
+}
+
+input TableFloatFilterInput {
+  between: [Float]
+  contains: Float
+  eq: Float
+  ge: Float
+  gt: Float
+  le: Float
+  lt: Float
+  ne: Float
+  notContains: Float
+}
+
+input TableGeneratedContentFilterInput {
+  Id: TableStringFilterInput
+  content: TableStringFilterInput
+  date_created: TableStringFilterInput
+  domain: TableStringFilterInput
+  entities: TableStringFilterInput
+  prompt: TableStringFilterInput
+  source: TableStringFilterInput
+}
+
+input TableIDFilterInput {
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+}
+
+input TableIntFilterInput {
+  between: [Int]
+  contains: Int
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+  notContains: Int
+}
+
+input TableSourceFilterInput {
+  Id: TableStringFilterInput
+}
+
+input TableStringFilterInput {
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+}
